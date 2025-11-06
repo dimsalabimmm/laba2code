@@ -10,7 +10,7 @@ namespace laba2
 {
     public partial class Form1 : Form
     {
-        // состояние и поля
+    
         private List<IFunction> functions = new List<IFunction>();
         private IFunction currentFunction;
         private Color graphColor = Color.Red;
@@ -27,7 +27,7 @@ namespace laba2
 
             InitializeFunctions();
             SetupDrawPanelBuffering();
-            InitComboIfMissing();
+            InitFunctionsList();
             ResetView();
         }
 
@@ -76,38 +76,36 @@ namespace laba2
         }
 
         private Panel GetDrawPanel() => this.Controls.Find("drawPanel", true).FirstOrDefault() as Panel;
-        private ComboBox GetComboFunctions() => this.Controls.Find("comboFunctions", true).FirstOrDefault() as ComboBox;
+        private CheckedListBox GetFunctionsList() => this.Controls.Find("listFunctions", true).FirstOrDefault() as CheckedListBox;
 
-        private void InitComboIfMissing()
+        private void InitFunctionsList()
         {
-            var cb = GetComboFunctions();
-            if (cb == null)
+            var clb = GetFunctionsList();
+            if (clb == null)
             {
-                cb = new ComboBox();
-                cb.Name = "comboFunctions";
-                cb.DropDownStyle = ComboBoxStyle.DropDownList;
-                cb.Width = 160;
-                cb.Left = 12;
-                cb.Top = 12;
-                this.Controls.Add(cb);
-                cb.BringToFront();
+                clb = new CheckedListBox();
+                clb.Name = "listFunctions";
+                clb.CheckOnClick = true;
+                clb.Width = 160;
+                clb.Height = 120;
+                clb.Left = 12;
+                clb.Top = 12;
+                this.Controls.Add(clb);
+                clb.BringToFront();
             }
 
-            cb.Items.Clear();
-            foreach (var f in functions) cb.Items.Add(f.Name);
-            cb.SelectedIndex = 0; cb.SelectedIndexChanged -= ComboFunctions_SelectedIndexChanged;
-            cb.SelectedIndexChanged += ComboFunctions_SelectedIndexChanged;
+            clb.Items.Clear();
+            foreach (var f in functions) clb.Items.Add(f.Name, false); 
 
+            
+            clb.ItemCheck -= ListFunctions_ItemCheck;
+            clb.ItemCheck += ListFunctions_ItemCheck;
         }
 
-        private void ComboFunctions_SelectedIndexChanged(object sender, EventArgs e)
+        private void ListFunctions_ItemCheck(object sender, ItemCheckEventArgs e)
         {
-            var cb = sender as ComboBox;
-            if (cb != null && cb.SelectedIndex >= 0)
-            {
-                currentFunction = functions[cb.SelectedIndex];
-                InvalidateDrawPanel();
-            }
+           
+            this.BeginInvoke(new Action(InvalidateDrawPanel));
         }
 
         private void ResetView()
@@ -120,15 +118,28 @@ namespace laba2
 
         private void InvalidateDrawPanel() => GetDrawPanel()?.Invalidate();
 
+        private System.Collections.Generic.IEnumerable<IFunction> EnumerateSelectedFunctions()
+        {
+            var clb = GetFunctionsList();
+            if (clb == null) yield break;
+            foreach (int idx in clb.CheckedIndices)
+            {
+                if (idx >= 0 && idx < functions.Count) yield return functions[idx];
+            }
+        }
+
         #region Button handlers
         private void btnRandom_Click(object sender, EventArgs e)
         {
             var rnd = new Random();
-            int idx = rnd.Next(functions.Count);
-            currentFunction = functions[idx];
-            var cb = GetComboFunctions();
-            if (cb != null) cb.SelectedIndex = idx;
-            ResetView();
+            var clb = GetFunctionsList();
+            if (clb != null)
+            {
+                int idx = rnd.Next(functions.Count);
+                bool currentlyChecked = clb.GetItemChecked(idx);
+                clb.SetItemChecked(idx, !currentlyChecked);
+                InvalidateDrawPanel();
+            }
         }
 
         private void btnSave_Click(object sender, EventArgs e)
@@ -214,7 +225,7 @@ namespace laba2
             float delta = e.Delta / 120f;
             float zoomFactor = (float)Math.Pow(1.2, delta);
             float newScale = scale * zoomFactor;
-            if (newScale < 0.05f) newScale = 0.05f;
+            if (newScale < 0.20f) newScale = 0.20f;
             if (newScale > 100f) newScale = 100f;
 
             var panel = sender as Panel;
@@ -242,7 +253,6 @@ namespace laba2
             using (var g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.White);
-                // вызвать тот же Render что и на экране
                 var method = typeof(Form1).GetMethod("Render", BindingFlags.Instance | BindingFlags.NonPublic);
                 if (method != null) method.Invoke(this, new object[] { g, size });
                 bmp.Save(path, ImageFormat.Png);

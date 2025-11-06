@@ -38,18 +38,18 @@ namespace laba2
             int left = 12, top = 12;
             int gap = 26;
 
-            rbSolid = new RadioButton() { Left = left, Top = top, Width = 340, Text = "Solid color (только основной цвет)" };
-            rbV = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Vertical gradient" };
-            rbH = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Horizontal gradient" };
-            rbD = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Diagonal gradient" };
-            rbHatch = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Hatch (SmallGrid)" };
-            rbCross = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Hatch (Cross)" };
-            rbChecker = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Checkerboard" };
+            rbSolid = new RadioButton() { Left = left, Top = top, Width = 340, Text = "Сплошной цвет (только основной)" };
+            rbV = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Вертикальный градиент" };
+            rbH = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Горизонтальный градиент" };
+            rbD = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Диагональный градиент" };
+            rbHatch = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Штриховка (SmallGrid)" };
+            rbCross = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Штриховка (Cross)" };
+            rbChecker = new RadioButton() { Left = left, Top = top += gap, Width = 340, Text = "Шахматная доска" };
 
             Controls.AddRange(new Control[] { rbSolid, rbV, rbH, rbD, rbHatch, rbCross, rbChecker });
 
-            btnPrimary = new Button() { Left = 12, Top = top + 40, Width = 160, Text = "Primary color" };
-            btnSecondary = new Button() { Left = 190, Top = top + 40, Width = 160, Text = "Secondary color" };
+            btnPrimary = new Button() { Left = 12, Top = top + 40, Width = 160, Text = "Основной цвет" };
+            btnSecondary = new Button() { Left = 190, Top = top + 40, Width = 160, Text = "Дополнительный цвет" };
             btnPrimary.Click += (s, e) => { using (var dlg = new ColorDialog() { Color = style.Primary }) if (dlg.ShowDialog() == DialogResult.OK) style.Primary = dlg.Color; };
             btnSecondary.Click += (s, e) => { using (var dlg = new ColorDialog() { Color = style.Secondary }) if (dlg.ShowDialog() == DialogResult.OK) style.Secondary = dlg.Color; };
             Controls.Add(btnPrimary);

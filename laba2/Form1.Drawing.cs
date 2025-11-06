@@ -42,7 +42,11 @@ namespace laba2
             g.SmoothingMode = SmoothingMode.AntiAlias;
             DrawBackground(g, size);
             DrawAxes(g, size);
-            DrawFunction(g, size);
+            var selected = new System.Collections.Generic.List<IFunction>(EnumerateSelectedFunctions());
+            foreach (var f in selected)
+            {
+                DrawFunctionFor(g, size, f);
+            }
             DrawUnitCircle(g, size);
 
             if (Math.Abs(scale - 1f) > 0.0001f)
@@ -166,16 +170,17 @@ namespace laba2
             }
         }
 
-        // Стабильная версия DrawFunction (копируйте сюда финальную версию, что у нас работала).
-        private void DrawFunction(Graphics g, Size size)
+        private void DrawFunctionFor(Graphics g, Size size, IFunction func)
         {
-            if (currentFunction == null) return;
+            if (func == null) return;
 
             using (var pen = new Pen(graphColor, 2f))
-            using (var asym = new Pen(Color.FromArgb(160, graphColor), 1f))
+            using (var asym = new Pen(Color.FromArgb(80, graphColor), 1f))
             {
                 pen.LineJoin = LineJoin.Round;
-                asym.DashStyle = DashStyle.Dash;
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                asym.DashStyle = DashStyle.Solid;
 
                 double leftX = ScreenToWorld(new PointF(0, 0)).X;
                 double rightX = ScreenToWorld(new PointF(size.Width, 0)).X;
@@ -186,7 +191,7 @@ namespace laba2
                 {
                     try
                     {
-                        double v = currentFunction.Calc(x);
+                        double v = func.Calc(x);
                         if (double.IsNaN(v)) return double.NaN;
                         if (double.IsInfinity(v)) return Math.Sign(v) * (Yclip * 1e3);
                         if (Math.Abs(v) > 1e300) return Math.Sign(v) * 1e300;
@@ -198,81 +203,46 @@ namespace laba2
                     }
                 }
 
-                if (currentFunction is TanFunction || (currentFunction.Name != null && currentFunction.Name.ToLower().Contains("tan")))
-                {
-                    double pi = Math.PI;
-                    int kmin = (int)Math.Floor((leftX - pi / 2.0) / pi) - 1;
-                    int kmax = (int)Math.Ceiling((rightX - pi / 2.0) / pi) + 1;
+               
+                int minSamples = size.Width * 3; 
+                int adaptiveSamples = (int)(Math.Abs(rightX - leftX) * PixelsPerUnit * 3);
+                int samples = Math.Max(minSamples, adaptiveSamples);
+                samples = Math.Min(samples, 50000);
 
-                    var asymptotes = new List<double>();
-                    for (int k = kmin; k <= kmax; k++)
-                    {
-                        double ax = pi / 2.0 + k * pi;
-                        if (ax >= leftX - 1.0 && ax <= rightX + 1.0) asymptotes.Add(ax);
-                    }
-
-                    var boundaries = new List<double>();
-                    boundaries.Add(leftX);
-                    foreach (var a in asymptotes.OrderBy(v => v)) boundaries.Add(a);
-                    boundaries.Add(rightX);
-
-                    for (int i = 0; i < boundaries.Count - 1; i++)
-                    {
-                        double segL = boundaries[i];
-                        double segR = boundaries[i + 1];
-                        double eps = Math.Max(1e-9, (segR - segL) * 1e-9);
-                        double a = segL + eps;
-                        double b = segR - eps;
-                        if (a >= b) continue;
-
-                        int n = Math.Max(3, (int)Math.Ceiling((b - a) * PixelsPerUnit));
-                        n = Math.Max(3, Math.Min(10000, n));
-
-                        var pts = new List<PointF>(n);
-                        for (int j = 0; j < n; j++)
-                        {
-                            double x = a + (b - a) * j / (n - 1);
-                            double y = EvalYSafe(x);
-                            if (double.IsNaN(y)) continue;
-
-                            double yClamped = y;
-                            if (Math.Abs(y) > Yclip) yClamped = Math.Sign(y) * Yclip;
-
-                            float screenX = WorldToScreen(new PointF((float)x, 0)).X;
-                            float screenY = WorldToScreen(new PointF(0, 0)).Y - (float)(yClamped * PixelsPerUnit);
-                            pts.Add(new PointF(screenX, screenY));
-                        }
-
-                        if (pts.Count >= 2)
-                        {
-                            g.DrawLines(pen, pts.ToArray());
-                        }
-                    }
-
-                    foreach (var a in asymptotes)
-                    {
-                        float sx = WorldToScreen(new PointF((float)a, 0)).X;
-                        g.DrawLine(asym, sx, 0, sx, size.Height);
-                    }
-                    return;
-                }
-
-                // Универсальная обработка остальных функций
-                int width = size.Width;
                 var segment = new List<PointF>();
-                for (int px = 0; px < width; px++)
+                var asymptotes = new HashSet<double>();
+
+                PointF? prevPoint = null;
+                bool prevWasValid = false;
+                double? prevY = null;
+
+                for (int i = 0; i <= samples; i++)
                 {
-                    PointF worldAtPixel = ScreenToWorld(new PointF(px, 0));
-                    double x = worldAtPixel.X;
+                    double x = leftX + (rightX - leftX) * i / samples;
                     double y = EvalYSafe(x);
 
-                    if (double.IsNaN(y))
+                    
+                    bool yIsBad = double.IsNaN(y) || double.IsInfinity(y);
+                    bool prevNearInf = prevY.HasValue && Math.Abs(prevY.Value) > Yclip * 0.9;
+                    bool currNearInf = !yIsBad && Math.Abs(y) > Yclip * 0.9;
+
+                   
+                    if (yIsBad)
                     {
-                        if (segment.Count >= 2) g.DrawLines(pen, segment.ToArray());
+                        if (prevPoint.HasValue && prevY.HasValue)
+                        {
+                            float edgeYPrev = prevY.Value > 0 ? -1f : (size.Height + 1f);
+                            segment.Add(new PointF(prevPoint.Value.X, edgeYPrev));
+                            if (segment.Count >= 2) g.DrawLines(pen, segment.ToArray());
+                        }
                         segment.Clear();
+                        prevY = null;
+                        prevPoint = null;
+                        prevWasValid = false;
                         continue;
                     }
 
+                    
                     double yClamped = y;
                     if (Math.Abs(y) > Yclip) yClamped = Math.Sign(y) * Yclip;
 
@@ -280,9 +250,56 @@ namespace laba2
                     float screenY = originPx.Y - (float)(yClamped * PixelsPerUnit);
                     var pt = new PointF(screenX, screenY);
 
-                    segment.Add(pt);
+                    
+                    bool hasDiscontinuity = false;
+                    if (prevWasValid && prevPoint.HasValue && prevY.HasValue)
+                    {
+                        float dx = Math.Abs(pt.X - prevPoint.Value.X);
+                        float dy = Math.Abs(pt.Y - prevPoint.Value.Y);
+                        
+                        bool isOppositeInf = prevNearInf && currNearInf && Math.Sign(prevY.Value) != Math.Sign(y);
+                        bool isRawJump = Math.Abs(y - prevY.Value) > Yclip * 5.0; 
+                        bool isVerticalJump = dy > size.Height * 2f && dx < 30f;
 
-                    if (segment.Count >= 600)
+                        if (isOppositeInf || isRawJump || isVerticalJump)
+                        {
+                            hasDiscontinuity = true;
+                            double asymptoteX = (x + ScreenToWorld(prevPoint.Value).X) / 2.0;
+                            asymptotes.Add(asymptoteX);
+                        }
+                    }
+
+                    
+                    if (hasDiscontinuity)
+                    {
+                        if (prevPoint.HasValue && prevY.HasValue)
+                        {
+                            
+                            float edgeYPrev = prevY.Value > 0 ? -1f : (size.Height + 1f);
+                            segment.Add(new PointF(prevPoint.Value.X, edgeYPrev));
+                        }
+                        if (segment.Count >= 2) g.DrawLines(pen, segment.ToArray());
+                        segment.Clear();
+
+                        
+                        float edgeYCur = y > 0 ? -1f : (size.Height + 1f);
+                        segment.Add(new PointF(pt.X, edgeYCur));
+                        segment.Add(pt);
+
+                        prevY = y;
+                        prevPoint = pt;
+                        prevWasValid = true;
+                        continue;
+                    }
+
+            
+                    segment.Add(pt);
+                    prevY = y;
+                    prevPoint = pt;
+                    prevWasValid = true;
+
+                   
+                    if (segment.Count >= 2000)
                     {
                         if (segment.Count >= 2) g.DrawLines(pen, segment.ToArray());
                         var last = segment[segment.Count - 1];
@@ -290,7 +307,6 @@ namespace laba2
                         segment.Add(last);
                     }
                 }
-
                 if (segment.Count >= 2) g.DrawLines(pen, segment.ToArray());
             }
         }
