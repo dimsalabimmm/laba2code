@@ -46,8 +46,47 @@ namespace laba2
             foreach (var f in selected)
             {
                 DrawFunctionFor(g, size, f);
+                // Рисуем точки для IDW функций
+                if (f is IDWFunction idwFunc)
+                {
+                    DrawIDWPoints(g, size, idwFunc);
+                }
             }
+            
+            // Рисуем текущий создаваемый график
+            if (isCreatingNewGraph && currentCreatingGraph != null)
+            {
+                DrawFunctionFor(g, size, currentCreatingGraph);
+                DrawIDWPoints(g, size, currentCreatingGraph, true);
+            }
+            
             DrawUnitCircle(g, size);
+
+            // Отображаем информацию о режиме создания
+            if (isCreatingNewGraph)
+            {
+                var txt = "Режим создания графика: правой кнопкой мыши добавляйте точки";
+                var font = new Font("Segoe UI", 9, FontStyle.Bold);
+                var textSize = g.MeasureString(txt, font);
+                var rect = new RectangleF(8, 8, textSize.Width + 10, textSize.Height + 4);
+                using (var brush = new SolidBrush(Color.FromArgb(220, Color.LightGreen)))
+                {
+                    g.FillRectangle(brush, rect);
+                }
+                g.DrawString(txt, font, Brushes.DarkGreen, new PointF(rect.X + 5, rect.Y + 2));
+                
+                if (currentCreatingGraph != null && currentCreatingGraph.PointCount > 0)
+                {
+                    var pointTxt = $"Точек: {currentCreatingGraph.PointCount}";
+                    var pointSize = g.MeasureString(pointTxt, font);
+                    var pointRect = new RectangleF(8, rect.Bottom + 2, pointSize.Width + 10, pointSize.Height + 4);
+                    using (var brush = new SolidBrush(Color.FromArgb(220, Color.LightBlue)))
+                    {
+                        g.FillRectangle(brush, pointRect);
+                    }
+                    g.DrawString(pointTxt, font, Brushes.DarkBlue, new PointF(pointRect.X + 5, pointRect.Y + 2));
+                }
+            }
 
             if (Math.Abs(scale - 1f) > 0.0001f)
             {
@@ -308,6 +347,41 @@ namespace laba2
                     }
                 }
                 if (segment.Count >= 2) g.DrawLines(pen, segment.ToArray());
+            }
+        }
+
+        /// <summary>
+        /// Рисует точки для IDW функции
+        /// </summary>
+        private void DrawIDWPoints(Graphics g, Size size, IDWFunction idwFunc, bool isCreating = false)
+        {
+            if (idwFunc == null || idwFunc.PointCount == 0) return;
+
+            var points = idwFunc.GetPoints();
+            float pointRadius = isCreating ? 6f : 5f;
+            Color pointColor = isCreating ? Color.Red : Color.Blue;
+            Color pointBorderColor = isCreating ? Color.DarkRed : Color.DarkBlue;
+
+            foreach (var point in points)
+            {
+                var screenPoint = WorldToScreen(new PointF((float)point.X, (float)point.Y));
+                
+                // Проверяем, находится ли точка в видимой области
+                if (screenPoint.X < -pointRadius || screenPoint.X > size.Width + pointRadius ||
+                    screenPoint.Y < -pointRadius || screenPoint.Y > size.Height + pointRadius)
+                    continue;
+
+                // Рисуем точку
+                using (var brush = new SolidBrush(pointColor))
+                {
+                    g.FillEllipse(brush, screenPoint.X - pointRadius, screenPoint.Y - pointRadius, 
+                        pointRadius * 2, pointRadius * 2);
+                }
+                using (var pen = new Pen(pointBorderColor, 1.5f))
+                {
+                    g.DrawEllipse(pen, screenPoint.X - pointRadius, screenPoint.Y - pointRadius, 
+                        pointRadius * 2, pointRadius * 2);
+                }
             }
         }
     }

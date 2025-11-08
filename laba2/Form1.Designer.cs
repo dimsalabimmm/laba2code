@@ -29,6 +29,7 @@
         private void InitializeComponent()
         {
             this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.btnNewGraph = new System.Windows.Forms.Button();
             this.btnReset = new System.Windows.Forms.Button();
             this.btnFon = new System.Windows.Forms.Button();
             this.btnColor = new System.Windows.Forms.Button();
@@ -40,6 +41,7 @@
             // 
             // groupBox1
             // 
+            this.groupBox1.Controls.Add(this.btnNewGraph);
             this.groupBox1.Controls.Add(this.comboFunctions);
             this.groupBox1.Controls.Add(this.btnReset);
             this.groupBox1.Controls.Add(this.btnFon);
@@ -55,6 +57,18 @@
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Меню";
             
+            // 
+            // btnNewGraph
+            // 
+            this.btnNewGraph.BackColor = System.Drawing.Color.Coral;
+            this.btnNewGraph.Font = new System.Drawing.Font("Microsoft Sans Serif", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+            this.btnNewGraph.Location = new System.Drawing.Point(6, 259);
+            this.btnNewGraph.Name = "btnNewGraph";
+            this.btnNewGraph.Size = new System.Drawing.Size(180, 35);
+            this.btnNewGraph.TabIndex = 6;
+            this.btnNewGraph.Text = "Новый график";
+            this.btnNewGraph.UseVisualStyleBackColor = false;
+            this.btnNewGraph.Click += new System.EventHandler(this.btnNewGraph_Click);
             // 
             // btnReset
             // 
@@ -150,6 +164,7 @@
         private System.Windows.Forms.Button btnFon;
         private System.Windows.Forms.Button btnReset;
         private System.Windows.Forms.ComboBox comboFunctions;
+        private System.Windows.Forms.Button btnNewGraph;
     }
 }
 

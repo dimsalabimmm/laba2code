@@ -20,15 +20,27 @@ namespace laba2
         private PointF originPx = new PointF();
         private bool dragging = false;
         private Point lastMouse;
+        
+        // Режим создания нового графика
+        private bool isCreatingNewGraph = false;
+        private IDWFunction currentCreatingGraph = null;
+        private int userGraphCounter = 1;
 
         public Form1()
         {
             InitializeComponent();
 
             InitializeFunctions();
+            LoadUserGraphs();
             SetupDrawPanelBuffering();
             InitFunctionsList();
             ResetView();
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            SaveUserGraphs();
+            base.OnFormClosing(e);
         }
 
         private void InitializeFunctions()
@@ -39,6 +51,26 @@ namespace laba2
             functions.Add(new CubeFunction());
             functions.Add(new LinearFunction());
             currentFunction = functions.First();
+        }
+
+        private void LoadUserGraphs()
+        {
+            var userGraphs = UserGraphsManager.LoadGraphs();
+            foreach (var graph in userGraphs)
+            {
+                functions.Add(graph);
+            }
+            // Обновляем счётчик для новых графиков
+            if (userGraphs.Count > 0)
+            {
+                userGraphCounter = userGraphs.Count + 1;
+            }
+        }
+
+        private void SaveUserGraphs()
+        {
+            var userGraphs = functions.OfType<IDWFunction>().ToList();
+            UserGraphsManager.SaveGraphs(userGraphs);
         }
 
         private void SetupDrawPanelBuffering()
@@ -186,11 +218,82 @@ namespace laba2
         }
 
         private void btnReset_Click(object sender, EventArgs e) => ResetView();
+
+        private void btnNewGraph_Click(object sender, EventArgs e)
+        {
+            if (isCreatingNewGraph)
+            {
+                // Завершаем создание графика
+                if (currentCreatingGraph != null && currentCreatingGraph.PointCount > 0)
+                {
+                    // Добавляем график в список функций
+                    functions.Add(currentCreatingGraph);
+                    
+                    // Обновляем список функций в UI
+                    InitFunctionsList();
+                    
+                    // Сохраняем графики
+                    SaveUserGraphs();
+                    
+                    MessageBox.Show($"График '{currentCreatingGraph.Name}' создан и сохранён!", 
+                        "График создан", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    
+                    // Автоматически выбираем новый график
+                    var clb = GetFunctionsList();
+                    if (clb != null && clb.Items.Count > 0)
+                    {
+                        clb.SetItemChecked(clb.Items.Count - 1, true);
+                    }
+                }
+                
+                isCreatingNewGraph = false;
+                currentCreatingGraph = null;
+                
+                // Обновляем текст кнопки
+                var btn = sender as Button;
+                if (btn != null)
+                {
+                    btn.Text = "Новый график";
+                    btn.BackColor = Color.Coral;
+                }
+                
+                InvalidateDrawPanel();
+            }
+            else
+            {
+                // Начинаем создание нового графика
+                isCreatingNewGraph = true;
+                currentCreatingGraph = new IDWFunction($"Пользовательский график {userGraphCounter++}");
+                
+                // Обновляем текст кнопки
+                var btn = sender as Button;
+                if (btn != null)
+                {
+                    btn.Text = "Завершить создание";
+                    btn.BackColor = Color.LightGreen;
+                }
+                
+                MessageBox.Show("Режим создания графика активирован.\nПравой кнопкой мыши добавляйте точки на графике.", 
+                    "Создание графика", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
         #endregion
 
         #region Mouse & Wheel
         private void DrawPanel_MouseDown(object sender, MouseEventArgs e)
         {
+            if (isCreatingNewGraph && e.Button == MouseButtons.Right)
+            {
+                // Добавляем точку в режиме создания графика
+                PointF worldPoint = ScreenToWorld(e.Location);
+                if (currentCreatingGraph != null)
+                {
+                    currentCreatingGraph.AddPoint(worldPoint.X, worldPoint.Y);
+                    InvalidateDrawPanel();
+                }
+                return;
+            }
+
             if (e.Button == MouseButtons.Left)
             {
                 dragging = true;
