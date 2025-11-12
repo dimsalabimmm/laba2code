@@ -25,6 +25,9 @@ namespace laba2
         private bool isCreatingNewGraph = false;
         private IDWFunction currentCreatingGraph = null;
         private int userGraphCounter = 1;
+        
+        // Менеджер синхронизации графиков через файловую систему
+        private GraphSyncManager syncManager;
 
         public Form1()
         {
@@ -32,14 +35,25 @@ namespace laba2
 
             InitializeFunctions();
             LoadUserGraphs();
+            
             SetupDrawPanelBuffering();
             InitFunctionsList();
             ResetView();
+            
+            // Подписываемся на событие загрузки формы для инициализации сокетов
+            this.Load += Form1_Load;
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            // Инициализируем синхронизацию через Named Pipes
+            InitializeGraphSync();
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             SaveUserGraphs();
+            syncManager?.Dispose();
             base.OnFormClosing(e);
         }
 
@@ -71,6 +85,82 @@ namespace laba2
         {
             var userGraphs = functions.OfType<IDWFunction>().ToList();
             UserGraphsManager.SaveGraphs(userGraphs);
+        }
+
+        private void InitializeGraphSync()
+        {
+            syncManager = new GraphSyncManager(this);
+            
+            // Небольшая задержка, чтобы дать время другим экземплярам сохранить свои данные
+            System.Threading.Thread.Sleep(300);
+            
+            // Проверяем наличие других экземпляров
+            bool hasOtherInstances = syncManager.CheckForOtherInstances();
+            
+            if (hasOtherInstances)
+            {
+                // Получаем список всех выбранных графиков от всех других экземпляров
+                var allSelectedGraphNames = syncManager.GetAllSelectedGraphsFromOthers();
+                
+                if (allSelectedGraphNames != null && allSelectedGraphNames.Count > 0)
+                {
+                    // Выбираем эти графики в нашем экземпляре
+                    SelectGraphsByName(allSelectedGraphNames);
+                    
+                    MessageBox.Show($"Синхронизировано графиков от других экземпляров: {allSelectedGraphNames.Count}\nГрафики: {string.Join(", ", allSelectedGraphNames)}", 
+                        "Синхронизация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Получает список имен выбранных графиков (для синхронизации)
+        /// </summary>
+        public List<string> GetSelectedGraphNames()
+        {
+            var selectedNames = new List<string>();
+            var clb = GetFunctionsList();
+            
+            if (clb != null)
+            {
+                foreach (int idx in clb.CheckedIndices)
+                {
+                    if (idx >= 0 && idx < clb.Items.Count)
+                    {
+                        selectedNames.Add(clb.Items[idx].ToString());
+                    }
+                }
+            }
+            
+            return selectedNames;
+        }
+
+        /// <summary>
+        /// Выбирает графики по именам (для синхронизации)
+        /// </summary>
+        private void SelectGraphsByName(List<string> graphNames)
+        {
+            if (graphNames == null || graphNames.Count == 0)
+                return;
+
+            var clb = GetFunctionsList();
+            if (clb == null)
+                return;
+
+            // Убеждаемся, что все графики есть в списке
+            InitFunctionsList();
+
+            // Выбираем графики по именам
+            for (int i = 0; i < clb.Items.Count; i++)
+            {
+                string itemName = clb.Items[i].ToString();
+                if (graphNames.Contains(itemName))
+                {
+                    clb.SetItemChecked(i, true);
+                }
+            }
+
+            InvalidateDrawPanel();
         }
 
         private void SetupDrawPanelBuffering()
@@ -126,12 +216,31 @@ namespace laba2
                 clb.BringToFront();
             }
 
-            clb.Items.Clear();
-            foreach (var f in functions) clb.Items.Add(f.Name, false); 
+            // Сохраняем текущие выбранные элементы
+            var checkedItems = new HashSet<string>();
+            if (clb.Items.Count > 0)
+            {
+                foreach (int idx in clb.CheckedIndices)
+                {
+                    if (idx >= 0 && idx < clb.Items.Count)
+                    {
+                        checkedItems.Add(clb.Items[idx].ToString());
+                    }
+                }
+            }
 
-            
             clb.ItemCheck -= ListFunctions_ItemCheck;
+            clb.Items.Clear();
+            
+            foreach (var f in functions) 
+            {
+                bool wasChecked = checkedItems.Contains(f.Name);
+                clb.Items.Add(f.Name, wasChecked);
+            }
+
             clb.ItemCheck += ListFunctions_ItemCheck;
+            
+            System.Diagnostics.Debug.WriteLine($"InitFunctionsList: добавлено {clb.Items.Count} элементов в список");
         }
 
         private void ListFunctions_ItemCheck(object sender, ItemCheckEventArgs e)
@@ -362,4 +471,5 @@ namespace laba2
             }
         }
     }
+}
 }
