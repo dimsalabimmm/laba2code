@@ -10,7 +10,7 @@ namespace laba2
 {
     public partial class Form1 : Form
     {
-    
+
         private List<IFunction> functions = new List<IFunction>();
         private IFunction currentFunction;
         private Color graphColor = Color.Red;
@@ -20,11 +20,14 @@ namespace laba2
         private PointF originPx = new PointF();
         private bool dragging = false;
         private Point lastMouse;
-        
+
         // Режим создания нового графика
         private bool isCreatingNewGraph = false;
         private IDWFunction currentCreatingGraph = null;
         private int userGraphCounter = 1;
+
+        // Менеджер синхронизации графиков через сокеты
+        private GraphSocketManager syncManager;
 
         public Form1()
         {
@@ -32,14 +35,25 @@ namespace laba2
 
             InitializeFunctions();
             LoadUserGraphs();
+
             SetupDrawPanelBuffering();
             InitFunctionsList();
             ResetView();
+
+            // Подписываемся на событие загрузки формы для инициализации сокетов
+            this.Load += Form1_Load;
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            // Инициализируем синхронизацию через сокеты
+            InitializeGraphSync();
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             SaveUserGraphs();
+            syncManager?.Dispose();
             base.OnFormClosing(e);
         }
 
@@ -71,6 +85,92 @@ namespace laba2
         {
             var userGraphs = functions.OfType<IDWFunction>().ToList();
             UserGraphsManager.SaveGraphs(userGraphs);
+        }
+
+        private void InitializeGraphSync()
+        {
+            syncManager = new GraphSocketManager(this);
+
+            // Пытаемся запустить сервер (если порт свободен, значит мы первый экземпляр)
+            try
+            {
+                syncManager.StartServer();
+            }
+            catch
+            {
+                // Порт занят - значит есть другой экземпляр, это нормально
+            }
+
+            // Небольшая задержка, чтобы дать время другим экземплярам запустить сервер
+            System.Threading.Thread.Sleep(300);
+
+            // Проверяем наличие других экземпляров
+            bool hasOtherInstances = syncManager.CheckForOtherInstances();
+
+            if (hasOtherInstances)
+            {
+                // Получаем список всех выбранных графиков от всех других экземпляров
+                var allSelectedGraphNames = syncManager.GetAllSelectedGraphsFromOthers();
+
+                if (allSelectedGraphNames != null && allSelectedGraphNames.Count > 0)
+                {
+                    // Выбираем эти графики в нашем экземпляре
+                    SelectGraphsByName(allSelectedGraphNames);
+
+                    MessageBox.Show($"Синхронизировано графиков от других экземпляров: {allSelectedGraphNames.Count}\nГрафики: {string.Join(", ", allSelectedGraphNames)}",
+                        "Синхронизация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Получает список имен выбранных графиков (для синхронизации)
+        /// </summary>
+        public List<string> GetSelectedGraphNames()
+        {
+            var selectedNames = new List<string>();
+            var clb = GetFunctionsList();
+
+            if (clb != null)
+            {
+                foreach (int idx in clb.CheckedIndices)
+                {
+                    if (idx >= 0 && idx < clb.Items.Count)
+                    {
+                        selectedNames.Add(clb.Items[idx].ToString());
+                    }
+                }
+            }
+
+            return selectedNames;
+        }
+
+        /// <summary>
+        /// Выбирает графики по именам (для синхронизации)
+        /// </summary>
+        private void SelectGraphsByName(List<string> graphNames)
+        {
+            if (graphNames == null || graphNames.Count == 0)
+                return;
+
+            var clb = GetFunctionsList();
+            if (clb == null)
+                return;
+
+            // Убеждаемся, что все графики есть в списке
+            InitFunctionsList();
+
+            // Выбираем графики по именам
+            for (int i = 0; i < clb.Items.Count; i++)
+            {
+                string itemName = clb.Items[i].ToString();
+                if (graphNames.Contains(itemName))
+                {
+                    clb.SetItemChecked(i, true);
+                }
+            }
+
+            InvalidateDrawPanel();
         }
 
         private void SetupDrawPanelBuffering()
@@ -126,17 +226,36 @@ namespace laba2
                 clb.BringToFront();
             }
 
-            clb.Items.Clear();
-            foreach (var f in functions) clb.Items.Add(f.Name, false); 
+            // Сохраняем текущие выбранные элементы
+            var checkedItems = new HashSet<string>();
+            if (clb.Items.Count > 0)
+            {
+                foreach (int idx in clb.CheckedIndices)
+                {
+                    if (idx >= 0 && idx < clb.Items.Count)
+                    {
+                        checkedItems.Add(clb.Items[idx].ToString());
+                    }
+                }
+            }
 
-            
             clb.ItemCheck -= ListFunctions_ItemCheck;
+            clb.Items.Clear();
+
+            foreach (var f in functions)
+            {
+                bool wasChecked = checkedItems.Contains(f.Name);
+                clb.Items.Add(f.Name, wasChecked);
+            }
+
             clb.ItemCheck += ListFunctions_ItemCheck;
+
+            System.Diagnostics.Debug.WriteLine($"InitFunctionsList: добавлено {clb.Items.Count} элементов в список");
         }
 
         private void ListFunctions_ItemCheck(object sender, ItemCheckEventArgs e)
         {
-           
+
             this.BeginInvoke(new Action(InvalidateDrawPanel));
         }
 
@@ -228,16 +347,16 @@ namespace laba2
                 {
                     // Добавляем график в список функций
                     functions.Add(currentCreatingGraph);
-                    
+
                     // Обновляем список функций в UI
                     InitFunctionsList();
-                    
+
                     // Сохраняем графики
                     SaveUserGraphs();
-                    
-                    MessageBox.Show($"График '{currentCreatingGraph.Name}' создан и сохранён!", 
+
+                    MessageBox.Show($"График '{currentCreatingGraph.Name}' создан и сохранён!",
                         "График создан", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    
+
                     // Автоматически выбираем новый график
                     var clb = GetFunctionsList();
                     if (clb != null && clb.Items.Count > 0)
@@ -245,10 +364,10 @@ namespace laba2
                         clb.SetItemChecked(clb.Items.Count - 1, true);
                     }
                 }
-                
+
                 isCreatingNewGraph = false;
                 currentCreatingGraph = null;
-                
+
                 // Обновляем текст кнопки
                 var btn = sender as Button;
                 if (btn != null)
@@ -256,7 +375,7 @@ namespace laba2
                     btn.Text = "Новый график";
                     btn.BackColor = Color.Coral;
                 }
-                
+
                 InvalidateDrawPanel();
             }
             else
@@ -264,7 +383,7 @@ namespace laba2
                 // Начинаем создание нового графика
                 isCreatingNewGraph = true;
                 currentCreatingGraph = new IDWFunction($"Пользовательский график {userGraphCounter++}");
-                
+
                 // Обновляем текст кнопки
                 var btn = sender as Button;
                 if (btn != null)
@@ -272,8 +391,8 @@ namespace laba2
                     btn.Text = "Завершить создание";
                     btn.BackColor = Color.LightGreen;
                 }
-                
-                MessageBox.Show("Режим создания графика активирован.\nПравой кнопкой мыши добавляйте точки на графике.", 
+
+                MessageBox.Show("Режим создания графика активирован.\nПравой кнопкой мыши добавляйте точки на графике.",
                     "Создание графика", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }

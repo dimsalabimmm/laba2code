@@ -6,14 +6,11 @@ using System.Xml.Linq;
 
 namespace laba2
 {
-    /// <summary>
-    /// Менеджер для сохранения и загрузки пользовательских графиков
-    /// </summary>
+    
     public class UserGraphsManager
     {
         private static string GetDataFilePath()
         {
-            // Сохраняем файл в папке приложения
             string appDataPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "Laba2Graphs"
@@ -27,9 +24,6 @@ namespace laba2
             return Path.Combine(appDataPath, "user_graphs.xml");
         }
 
-        /// <summary>
-        /// Сохраняет список пользовательских графиков в файл
-        /// </summary>
         public static void SaveGraphs(List<IDWFunction> graphs)
         {
             try
@@ -52,9 +46,6 @@ namespace laba2
             }
         }
 
-        /// <summary>
-        /// Загружает список пользовательских графиков из файла
-        /// </summary>
         public static List<IDWFunction> LoadGraphs()
         {
             List<IDWFunction> graphs = new List<IDWFunction>();

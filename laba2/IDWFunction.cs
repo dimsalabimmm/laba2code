@@ -4,20 +4,16 @@ using System.Linq;
 
 namespace laba2
 {
-    /// <summary>
-    /// Функция, построенная методом IDW (Inverse Distance Weighting)
-    /// по точкам, заданным пользователем
-    /// </summary>
     public class IDWFunction : IFunction
     {
         private List<PointD> points;
-        private double power; // Степень для IDW (обычно 2)
+        private double power;
         private string functionName;
 
         public IDWFunction(string name = "Пользовательский график")
         {
             points = new List<PointD>();
-            power = 2.0; // Стандартная степень для IDW
+            power = 2.0;
             functionName = name;
         }
 
@@ -26,13 +22,12 @@ namespace laba2
             points = new List<PointD>(initialPoints);
             power = idwPower;
             functionName = name;
-            // Сортируем точки по x для быстрого поиска
             points = points.OrderBy(p => p.X).ToList();
         }
 
         public void AddPoint(double x, double y)
         {
-            // Удаляем точку с таким же x, если она существует
+           
             points.RemoveAll(p => Math.Abs(p.X - x) < 1e-10);
             points.Add(new PointD(x, y));
             points = points.OrderBy(p => p.X).ToList();
@@ -64,25 +59,22 @@ namespace laba2
             if (points.Count == 0)
                 return double.NaN;
 
-            // Если есть точка с точно таким же x, возвращаем её y
             var exactMatch = points.FirstOrDefault(p => Math.Abs(p.X - x) < 1e-10);
             if (exactMatch != null)
                 return exactMatch.Y;
 
-            // Если только одна точка, возвращаем её y
             if (points.Count == 1)
                 return points[0].Y;
 
-            // Метод IDW (Inverse Distance Weighting)
+        
             double numerator = 0.0;
             double denominator = 0.0;
-            const double epsilon = 1e-10; // Малое значение для избежания деления на ноль
+            const double epsilon = 1e-10; 
 
             foreach (var point in points)
             {
                 double distance = Math.Abs(x - point.X);
                 
-                // Если расстояние очень мало, возвращаем значение точки
                 if (distance < epsilon)
                     return point.Y;
 
@@ -97,13 +89,11 @@ namespace laba2
             return numerator / denominator;
         }
 
-        // Метод для сохранения точек в строку (для сериализации)
         public string SerializePoints()
         {
             return string.Join(";", points.Select(p => $"{p.X}:{p.Y}"));
         }
 
-        // Метод для загрузки точек из строки
         public void DeserializePoints(string data)
         {
             points.Clear();
@@ -126,9 +116,7 @@ namespace laba2
         }
     }
 
-    /// <summary>
-    /// Класс для представления точки с координатами double
-    /// </summary>
+    
     public class PointD
     {
         public double X { get; set; }

@@ -35,14 +35,12 @@
             this.btnColor = new System.Windows.Forms.Button();
             this.btnSave = new System.Windows.Forms.Button();
             this.btnRandom = new System.Windows.Forms.Button();
-            this.comboFunctions = new System.Windows.Forms.ComboBox();
             this.groupBox1.SuspendLayout();
             this.SuspendLayout();
             // 
             // groupBox1
             // 
             this.groupBox1.Controls.Add(this.btnNewGraph);
-            this.groupBox1.Controls.Add(this.comboFunctions);
             this.groupBox1.Controls.Add(this.btnReset);
             this.groupBox1.Controls.Add(this.btnFon);
             this.groupBox1.Controls.Add(this.btnColor);
@@ -56,7 +54,7 @@
             this.groupBox1.TabIndex = 0;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Меню";
-            
+
             // 
             // btnNewGraph
             // 
@@ -131,15 +129,6 @@
             this.btnRandom.UseVisualStyleBackColor = false;
             this.btnRandom.Click += new System.EventHandler(this.btnRandom_Click);
             // 
-            // comboFunctions
-            // 
-            this.comboFunctions.BackColor = System.Drawing.Color.Coral;
-            this.comboFunctions.FormattingEnabled = true;
-            this.comboFunctions.Location = new System.Drawing.Point(6, 28);
-            this.comboFunctions.Name = "comboFunctions";
-            this.comboFunctions.Size = new System.Drawing.Size(180, 32);
-            this.comboFunctions.TabIndex = 5;
-            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -149,7 +138,7 @@
             this.Controls.Add(this.groupBox1);
             this.Name = "Form1";
             this.Text = "График";
-            
+
             this.groupBox1.ResumeLayout(false);
             this.ResumeLayout(false);
 
@@ -163,7 +152,6 @@
         private System.Windows.Forms.Button btnColor;
         private System.Windows.Forms.Button btnFon;
         private System.Windows.Forms.Button btnReset;
-        private System.Windows.Forms.ComboBox comboFunctions;
         private System.Windows.Forms.Button btnNewGraph;
     }
 }
