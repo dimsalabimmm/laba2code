@@ -25,7 +25,7 @@ namespace laba2
         private bool isCreatingNewGraph = false;
         private IDWFunction currentCreatingGraph = null;
         private int userGraphCounter = 1;
-
+        
         // Менеджер синхронизации графиков через сокеты
         private GraphSocketManager syncManager;
 
@@ -90,7 +90,7 @@ namespace laba2
         private void InitializeGraphSync()
         {
             syncManager = new GraphSocketManager(this);
-
+            
             // Пытаемся запустить сервер (если порт свободен, значит мы первый экземпляр)
             try
             {
@@ -100,7 +100,7 @@ namespace laba2
             {
                 // Порт занят - значит есть другой экземпляр, это нормально
             }
-
+            
             // Небольшая задержка, чтобы дать время другим экземплярам запустить сервер
             System.Threading.Thread.Sleep(300);
 

@@ -34,10 +34,10 @@ namespace laba2
         {
             parentForm = form;
             currentSelectedGraphs = new List<string>();
-
+            
             // Определяем порт для этого экземпляра (используем хеш процесса для уникальности)
             myPort = BASE_PORT + (Math.Abs(Process.GetCurrentProcess().Id.GetHashCode()) % PORT_RANGE);
-
+            
             // Запускаем таймер для периодического сохранения и синхронизации
             syncTimer = new System.Threading.Timer(SyncTimerCallback, null, 500, 500); // Каждые 500мс
         }
@@ -51,14 +51,14 @@ namespace laba2
             for (int port = BASE_PORT; port < BASE_PORT + PORT_RANGE; port++)
             {
                 if (port == myPort) continue;
-
+                
                 try
                 {
                     using (var client = new TcpClient())
                     {
                         var result = client.BeginConnect(LOCALHOST, port, null, null);
                         var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(100));
-
+                        
                         if (success)
                         {
                             client.EndConnect(result);
@@ -71,7 +71,7 @@ namespace laba2
                     // Порт не активен, продолжаем поиск
                 }
             }
-
+            
             return false;
         }
 
@@ -81,12 +81,12 @@ namespace laba2
         public List<string> GetAllSelectedGraphsFromOthers()
         {
             List<string> allSelectedGraphs = new List<string>();
-
+            
             // Опрашиваем все порты в диапазоне, кроме своего
             for (int port = BASE_PORT; port < BASE_PORT + PORT_RANGE; port++)
             {
                 if (port == myPort) continue;
-
+                
                 try
                 {
                     using (var client = new TcpClient())
@@ -94,22 +94,22 @@ namespace laba2
                         // Устанавливаем таймаут подключения
                         client.ReceiveTimeout = 1000;
                         client.SendTimeout = 1000;
-
+                        
                         var result = client.BeginConnect(LOCALHOST, port, null, null);
                         var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(200));
-
+                        
                         if (!success)
                         {
                             continue; // Порт не активен, пробуем следующий
                         }
-
+                        
                         client.EndConnect(result);
-
+                        
                         using (var stream = client.GetStream())
                         {
                             stream.ReadTimeout = 1000;
                             stream.WriteTimeout = 1000;
-
+                            
                             using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
                             using (var reader = new StreamReader(stream, Encoding.UTF8))
                             {
@@ -123,7 +123,7 @@ namespace laba2
                                 {
                                     continue;
                                 }
-
+                                
                                 if (response == "SELECTED_GRAPHS_DATA")
                                 {
                                     // Читаем количество графиков
@@ -132,18 +132,18 @@ namespace laba2
                                     {
                                         continue;
                                     }
-
+                                    
                                     if (int.TryParse(countStr, out int count))
                                     {
                                         for (int i = 0; i < count; i++)
                                         {
                                             string graphName = reader.ReadLine();
-
+                                            
                                             if (graphName == null)
                                             {
                                                 break;
                                             }
-
+                                            
                                             if (!string.IsNullOrEmpty(graphName) && !allSelectedGraphs.Contains(graphName))
                                             {
                                                 allSelectedGraphs.Add(graphName);
@@ -160,10 +160,10 @@ namespace laba2
                     // Игнорируем ошибки при подключении к неактивным портам
                 }
             }
-
+            
             return allSelectedGraphs;
         }
-
+        
         /// <summary>
         /// Сохраняет список выбранных графиков этого экземпляра
         /// </summary>
@@ -231,12 +231,12 @@ namespace laba2
                 {
                     stream.ReadTimeout = 2000;
                     stream.WriteTimeout = 2000;
-
+                    
                     using (var reader = new StreamReader(stream, Encoding.UTF8))
                     using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
                     {
                         string request = reader.ReadLine();
-
+                        
                         if (request == "GET_SELECTED_GRAPHS")
                         {
                             // Получаем актуальный список выбранных графиков
@@ -245,12 +245,12 @@ namespace laba2
                             {
                                 graphsToSend = new List<string>(currentSelectedGraphs);
                             }
-
+                            
                             System.Diagnostics.Debug.WriteLine($"Отправка {graphsToSend.Count} выбранных графиков клиенту");
-
+                            
                             writer.WriteLine("SELECTED_GRAPHS_DATA");
                             writer.Flush();
-
+                            
                             writer.WriteLine(graphsToSend.Count.ToString());
                             writer.Flush();
 
@@ -258,7 +258,7 @@ namespace laba2
                             {
                                 writer.WriteLine(graphName);
                                 writer.Flush();
-
+                                
                                 System.Diagnostics.Debug.WriteLine($"Отправлено имя графика: {graphName}");
                             }
 
@@ -301,7 +301,7 @@ namespace laba2
                 if (parentForm.IsHandleCreated)
                 {
                     List<string> selectedGraphs = null;
-
+                    
                     if (parentForm.InvokeRequired)
                     {
                         parentForm.Invoke(new Action(() =>
@@ -313,7 +313,7 @@ namespace laba2
                     {
                         selectedGraphs = parentForm.GetSelectedGraphNames();
                     }
-
+                    
                     if (selectedGraphs != null)
                     {
                         SaveSelectedGraphs(selectedGraphs);
